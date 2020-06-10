@@ -46,13 +46,13 @@ CD "$env:USERPROFILE\desktop"
 $settingsFile = Read-Host "URL (gist, pastebin, etc. to the raw JSON file) or literal path to settings.json"
 
 # URL to Start-Build.ps1
-$URI = 'https://gist.githubusercontent.com/Jammrock/a51247baa21ac6e9355b20133efaa866/raw/3aef0529046451cd7f6fa8e1d9fe53d252d45e1e/Start-Build.ps1'
+$URI = 'https://raw.githubusercontent.com/Jammrock/Start-Build/master/Start-Build.ps1'
 
 # download Start-Build.ps1
 $script = Get-WebFile -URI $URI -savePath $PWD.Path -fileName "Start-Build.ps1"
 
 # start the build process
-if ($script)
+if ((Test-Path $script))
 {
     powershell.exe -NoLogo -NoProfile -ExecutionPolicy Unrestricted -file "$script" -settingsFile $settingsFile
 }
