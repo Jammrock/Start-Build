@@ -116,7 +116,7 @@ https://github.com/microsoft/winget-pkgs/tree/master/manifests
 
 2. Run this command:
 
-`curl 'https://raw.githubusercontent.com/Jammrock/Start-Build/master/Start-Build.ps1' -UseBasicParsing | iex`
+`curl 'https://raw.githubusercontent.com/Jammrock/Start-Build/master/build.ps1' -UseBasicParsing | iex`
 
 3. Enter the URL or path to settings.json.
 
