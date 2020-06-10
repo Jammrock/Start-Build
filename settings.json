@@ -1,0 +1,48 @@
+{
+    "computerName": [
+        "MyComputer"
+    ],
+    "timeZone": [
+        "Eastern Standard Time"
+    ],
+    "userEnv": [
+        {
+            "name": "_NT_SYMBOL_PATH",
+            "value": "srv*c:\\sym*https://msdl.microsoft.com/download/symbols"
+        },
+        {
+            "name": "Path",
+            "value": "C:\\tools"
+        }
+    ],
+    "systemEnv": [],
+    "wingetApps": [
+        "Microsoft.WindowsTerminal",
+        "Microsoft.VC++2015-2019Redist-x64",
+        "Microsoft.VisualStudioCode",
+        "Microsoft.PowerToys",
+        "Microsoft.Powershell",
+        "Microsoft.Edge",
+        "7zip.7zip"
+    ],
+    "pwshModules": [
+        "az"
+    ],
+    "winCapabilities": [
+        "OpenSSH.Client"
+    ],
+    "winFeaturesEnable": [
+        "Microsoft-Windows-Subsystem-Linux",
+        "Microsoft-Hyper-V-All",
+        "VirtualMachinePlatform",
+        "Containers-DisposableClientVM"
+    ],
+    "winFeaturesDisable": [
+        "Printing-XPSServices-Features",
+        "FaxServicesClientPackage",
+        "MicrosoftWindowsPowerShellV2Root",
+        "MicrosoftWindowsPowerShellV2",
+        "SMB1Protocol",
+        "Internet-Explorer-Optional-amd64"
+    ]
+}
