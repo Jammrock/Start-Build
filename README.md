@@ -111,3 +111,13 @@ https://github.com/microsoft/winget-pkgs/tree/master/manifests
 ## Instructions
 
 \<coming soon\>
+
+1. Open an elevated PowerShell (Run as administrator).
+
+2. Run this command:
+
+`curl 'https://raw.githubusercontent.com/Jammrock/Start-Build/master/Start-Build.ps1' -UseBasicParsing | iex`
+
+3. Enter the URL or path to settings.json.
+
+4. Chill... except for the parts where you need to logon after reboots.
