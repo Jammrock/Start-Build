@@ -39,6 +39,9 @@ function Get-WebFile
     return "$savePath\$fileName"
 }
 
+# navigate to the desktop
+CD "$env:USERPROFILE\desktop"
+
 # prompt for the settings.json location
 $settingsFile = Read-Host "URL (gist, pastebin, etc. to the raw JSON file) or literal path to settings.json"
 
