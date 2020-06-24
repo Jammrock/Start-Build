@@ -63,9 +63,9 @@ Adds user environment variables to the logged on user running the script. Each a
 
 This is the variable name. Example: PATH
 
-Entries to PATH (case insensitive) are appended to the existing path. All additions to PATH can be in a single entry or multiple entries.
+Entries to PATH (case insensitive) are appended to the existing path. All additions to PATH can be in a single entry as semi-colon (;) separated values or in multiple entries, one addition per entry.
 
-All of ther variable names are added, or overwrites the existing value.
+All of ther variable names are added or overwrites the existing value.
 
 #### *value*
 
@@ -89,7 +89,7 @@ The feature name used for winCapabilities should be the feature name up to the t
 
 The official list of FOD packages are [here](https://docs.microsoft.com/en-us/windows-hardware/manufacture/desktop/features-on-demand-non-language-fod).
 
-You can also get a list of FOD name using this command in PowerShell:
+You can also get a list of FOD names using this command in PowerShell:
 
 `Get-WindowsCapability -Online`
 
