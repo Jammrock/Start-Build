@@ -3,6 +3,20 @@ Performs basic setup for a new Windows 10 installation. Setup is performed in ph
 
 A settings.json file is required. The settings file contains details about how the system should be setup.
 
+## Instructions
+
+\<Better instructions coming soon\>
+
+1. Open an elevated PowerShell (Run as administrator).
+
+2. Run this command:
+
+`curl 'https://git.io/JfhIU' -UseBasicParsing | iex`
+
+3. Enter the URL or path to settings.json.
+
+4. Chill... except for the parts where you need to logon after reboots.
+
 # settings.json
 
 The [example-settings.json](https://raw.githubusercontent.com/Jammrock/Start-Build/master/example-settings.json) file can be used as a template for creating a custom build file.
@@ -108,16 +122,3 @@ https://github.com/microsoft/winget-pkgs/tree/master/manifests
 5. Copy the full ID into wingetApps, keeping the JSON formatting of the example.
 
 
-## Instructions
-
-\<coming soon\>
-
-1. Open an elevated PowerShell (Run as administrator).
-
-2. Run this command:
-
-`curl 'https://raw.githubusercontent.com/Jammrock/Start-Build/master/build.ps1' -UseBasicParsing | iex`
-
-3. Enter the URL or path to settings.json.
-
-4. Chill... except for the parts where you need to logon after reboots.
