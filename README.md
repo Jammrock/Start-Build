@@ -7,15 +7,17 @@ A settings.json file is required. The settings file contains details about how t
 
 \<Better instructions coming soon\>
 
-1. Open an elevated PowerShell (Run as administrator).
+1. Create a settings.json file. See the settings.json section for details.
 
-2. Run this command:
+2. Open an elevated PowerShell (Run as administrator) console.
+
+3. Run this command:
 
 `curl 'https://git.io/JfhIU' -UseBasicParsing | iex`
 
-3. Enter the URL or path to settings.json.
+4. Enter the URL or path to your settings.json file.
 
-4. Chill... except for the parts where you need to logon after reboots.
+5. Chill... unless you set noAutoLogon and need to sign in with every reboot.
 
 # settings.json
 
@@ -42,11 +44,26 @@ Or use PowerShell:
 
 `Get-TimeZone -ListAvailable`
 
+### AutoLogon
+
+True - Allows the user to be prompted to enter credentials to enable AutoAdminLogon during the build process.
+False - Supresses the AutoLogon prompt
+
+The Microsoft SysInternals AutoLogon tool is downloaded and used when AutoLogon is set to True. This tool is used as a security measure to enable password encryption of the logon credentials.
+
+The prompt comes up a second time at the end of the build process, during cleanup. This allows the user to decide whether to disable AutoAdminLogon, recommended best security practice, or leave it enabled.
+
+**WARNING for Hyper-V users!** 
+
+Enhanced Session will cause AutoLogon to fail! You must disable Enhanced Session before the first reboot.
+
+Select View from the vmconnect menu and uncheck Enhanced Session to allow AutoLogon to work. Or relaunch the VM console and close the resolution prompt to disable it.
+
 ### userEnv
 
 Adds user environment variables to the logged on user running the script. Each addition must be formatted using the following template. Multiple variables should be separated by commas (,) per JSON file format rules.
 
-`        
+```
 "userEnv": [
         {
             "name": "",
@@ -57,7 +74,7 @@ Adds user environment variables to the logged on user running the script. Each a
             "value": ""
         }
 ]
-`
+```
 
 #### *name*
 
