@@ -3,7 +3,7 @@ Performs basic setup for a new Windows 10 installation. Setup is performed in ph
 
 A settings.json file is required. The settings file contains details about how the system should be setup.
 
-## Instructions
+# Instructions
 
 \<Better instructions coming soon\>
 
@@ -17,7 +17,7 @@ A settings.json file is required. The settings file contains details about how t
 
 4. Enter the URL or path to your settings.json file.
 
-5. Chill... unless you set noAutoLogon and need to sign in with every reboot.
+5. Chill... unless you disabled AutoLogon and need to sign in with every reboot.
 
 # settings.json
 
