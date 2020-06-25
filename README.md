@@ -121,4 +121,16 @@ https://github.com/microsoft/winget-pkgs/tree/master/manifests
 4. Select the yaml file of the package you want to installed.
 5. Copy the full ID into wingetApps, keeping the JSON formatting of the example.
 
+### gpuDriverOnly
 
+This feature is experimental. 
+
+Start-Build will attempt to detect Nvidia GeForce and Quadro graphics cards. Install-BuildNvidia will be downloaded and executed when one of these models are detected.
+
+The install script then attempts to manually detect, dowwnload, and install the latest GeForce or Quadro driver.
+
+The default Nvidia package installs a extra, non-driver related, software by default. Setting this option to True will force a driver-only install.
+
+AMD cards are currently not supported. Only because I don't have any AMD graphics cards to test with.
+
+Intel graphics are currently not supported because there is too much driver diversity. Laptops often require a special OEM driver, each chip gen has their own graphics installer, and so forth. Windows Update does a good job keeping the Intel graphics up-to-date, anyway, so there is no real need to handle this through the Start-Build process. Intel Xe may be supported in the future if there is any interest.
