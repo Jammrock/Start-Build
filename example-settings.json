@@ -1,10 +1,7 @@
 {
-    "computerName": [
-        "MyComputer"
-    ],
-    "timeZone": [
-        "Eastern Standard Time"
-    ],
+    "computerName": "Compy386",
+    "timeZone": "Eastern Standard Time",
+    "AutoLogon": "True",
     "userEnv": [
         {
             "name": "_NT_SYMBOL_PATH",
@@ -18,12 +15,21 @@
     "systemEnv": [],
     "wingetApps": [
         "Microsoft.VC++2015-2019Redist-x64",
+        "Microsoft.VC++2017Redist-x64",
         "Microsoft.VisualStudioCode",
         "Microsoft.PowerToys",
         "Microsoft.Powershell",
         "Microsoft.WindowsTerminal",
-        "Microsoft.Edge",
-        "7zip.7zip"
+        "7zip.7zip",
+        "Blizzard.BattleNet",
+        "Discord.Discord",
+        "EpicGames.EpicGamesLauncher",
+        "Git.Git",
+        "Google.Chrome",
+        "Mumble.Mumble",
+        "Notepad++.Notepad++",
+        "Valve.Steam",
+        "WiresharkFoundation.Wireshark"
     ],
     "pwshModules": [
         "az"
@@ -44,5 +50,6 @@
         "MicrosoftWindowsPowerShellV2",
         "SMB1Protocol",
         "Internet-Explorer-Optional-amd64"
-    ]
+    ],
+    "gpuDriverOnly": "True"
 }
