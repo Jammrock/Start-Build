@@ -1,17 +1,21 @@
-#requires -RunAsAdministrator
 #requires -Version 5.1
 
 <#
-    TO-DO
+    TO-DO:
 
-    - DONE: Update drivers via WU: Get-WindowsUpdate -WindowsUpdate -UpdateType Driver -AcceptAll -Verbose -IgnoreReboot
-    - DONE: Add Environment variables: SYSTEM and User(?)
-    - Download and install projects from GitHub
-    - Download and install files from web sites...?
-    - Autologon after reboots. (doesn't work on VMs?)
-    - DONE: Help file
-    - DONE: Set computername
-    - DONE: Set timezone ... https://support.microsoft.com/en-us/help/973627/microsoft-time-zone-index-values ... Name of Time Zone
+    - Add logging.
+    - Use Github API to find the newest release rather than page parsing.
+
+
+    The Graveyard (rejected ideas):
+
+    - Out-of-scope: Download and install projects from GitHub
+    - Out-of-scope: Download and install files from web sites...?
+
+
+    What's not working:
+
+    - AutoLogon is not consistent on Windows Hello capable devices. Needs more testing and tweaking.
 
 #>
 
@@ -45,6 +49,7 @@ param(
     5 - Get drivers from Windows Update.
     6 - Download and install winget, then install apps through winget
     7 - Install PowerShell modules
+    8 - Download and install supported graphics drivers
     # - Any number not associated with a phase will trigger cleanup.
 
     #>
@@ -61,14 +66,141 @@ param(
     [string]$bldPath = "C:\Temp"
 )
 
+## classes go here ##
+#region CLASSES
 
-    <#
-    Turns off the autologon ability. The username and password must be manually entered after each reboot when autologon is disabled.
-    #>
-    #[switch]$noAutoLogon
+# there is a Windows system object called Version, so do not rename this to Version!
+class PSVersion {
+    [ValidateNotNullOrEmpty()][int]$Major
+    [ValidateNotNullOrEmpty()][int]$Minor
+    [int]$Build
+    [int]$Revision
+
+    PSVersion()
+    {
+        [int]$this.Major = -1
+        [int]$this.Minor = -1
+        [int]$this.Build = -1
+        [int]$this.Revision = -1
+    }
+
+    PSVersion(
+        $maj,
+        $min
+    )
+    {
+        [int]$this.Major = $maj
+        [int]$this.Minor = $min
+        [int]$this.Build = -1
+        [int]$this.Revision = -1
+    }
+
+    PSVersion(
+        $maj,
+        $min,
+        $bld
+    )
+    {
+        [int]$this.Major = $maj
+        [int]$this.Minor = $min
+        [int]$this.Build = $bld
+        [int]$this.Revision = -1
+    }
+
+    PSVersion(
+        $maj,
+        $min,
+        $bld,
+        $rev
+    )
+    {
+        [int]$this.Major = $maj
+        [int]$this.Minor = $min
+        [int]$this.Build = $bld
+        [int]$this.Revision = $rev
+    }
+
+    [string]GetVersion()
+    {
+        $str = ("{0}.{1}" -f $this.Major, $this.Minor)
+
+        if ($this.Build -ne -1)
+        {
+            $str += ".$($this.Build)"
+        }
+
+        if ($this.Revision -ne -1)
+        {
+            $str += ".$($this.Revision)"
+        }
+
+        return $str
+    }
+
+    [string]ToList()
+    {
+        return ("Major`t`t: {0}`nMinor`t`t: {1}`nBuild`t`t: {2}`nRevision`t: {3}" -f $this.Major, $this.Minor, $this.Build, $this.Revision)
+    }
+
+    [string]ToString()
+    {
+        return $this.GetVersion()
+    }
+}
+
+#endregion CLASSES
+
+
+## variables/constansts for values that may change in the future ##
+#region VARIABLES
+
+# required minimum version of PowerShellGet
+$psgMinVer = [PSVersion]::New(2,2,4,1)
+
+# required minimum version of NuGet
+$nugetMinVer = [PSVersion]::New(2,8,5,201)
+
+
+# show progress bars
+# Default: SilentlyContinue
+# Change to Continue to see the progress bars.
+# https://docs.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_preference_variables?view=powershell-7
+$ProgressPreference = "SilentlyContinue"
+
+# reboot when done? Defaults to $false/no, unless a program/install requires it.
+$restart = $false
+
+
+<#
+Moving this param to settings.json to make it easier to execute when using the GitHub instructions
+Turns off the autologon ability. The username and password must be manually entered after each reboot when autologon is disabled.
+#>
+#[switch]$noAutoLogon
+#endregion VARIABLES
+
 
 ## functions go here ##
 #region FUNCTIONS
+
+function Restart-ScriptAsAdmin
+{
+    param(
+        $Phase,
+        $settingsFile,
+        $bldPath
+    )
+
+    Write-Host 'Attempting automatic elevation.'
+    $newProcess = New-Object Diagnostics.ProcessStartInfo 'powershell.exe'
+    $newProcess.Arguments = "-noprofile -nologo -ExecutionPolicy Unrestricted -File `"$($script:MyInvocation.MyCommand.Path)`" -Phase $Phase -settingsFile `"$settingsFile`" -bldPath `"$bldPath`""
+    $newProcess.Verb = 'runas'
+    $newProcess.WorkingDirectory = "$PSScriptRoot"
+    [Diagnostics.Process]::Start($newProcess)
+
+    # close the script
+    exit
+}
+
 function Start-Reboot
 {
     param(
@@ -133,6 +265,7 @@ powershell -NoLogo -NoProfile -ExecutionPolicy Unrestricted -file "$scriptPath\S
     }
 
     # reboot
+    Start-Sleep 5
     Restart-Computer -Force
 }
 
@@ -221,7 +354,7 @@ function Get-WebFile
 
     try 
     {
-        Invoke-WebRequest -Uri $URI -OutFile "$savePath\$fileName"
+        Invoke-WebRequest -Uri $URI -OutFile "$savePath\$fileName" -MaximumRedirection 5 -EA Stop
     } 
     catch 
     {
@@ -274,16 +407,157 @@ function Reset-Path
     $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User") 
 }
 
+
+# tests whether the object contains valid data.
+# - Major and Minor must exist.
+# - Major, Minor, [optional] Build, and [optional] Revision must be integers
+
+function Test-Version
+{
+    param( $obj )
+
+    $valNames = "Major", "Minor", "Build", "Revision"
+
+    foreach ($n in $valNames)
+    {
+        if (($obj."$n" -or $obj."$n" -eq 0))
+        {
+            # is int?
+            if ($obj."$n" -isnot [int])
+            {
+                Write-Error "$n is not an integer."
+                return $false
+            }
+        }
+        else 
+        {
+            if ($n -eq "Major" -or $n -eq "Minor")
+            {
+                Write-Error "Object does not contain a $n version."
+                return $false
+            }
+        }
+    }
+
+    return $true
+}
+
+<#
+
+    Accepts two version objects. Each object must contain the following integer ([int])properties:
+
+    - Major
+    - Minor
+
+    These two integer properties are optional
+
+    - Build
+    - Revision
+
+    Other properties are acceptable within the object. The function only looks for these four values.
+
+    The RequiredVer is the well known version. For example, if testing whether an update to PowerShellGet is needed, 
+    and the minimum version needed is 2.2.4.1, then the version object containing 2.2.4.1 would be the RequiredVer.
+    
+    The Version class is provided to create a valid Compare-Version object.
+    
+    Example 1:
+    Create a Version object for a module of version 2.2.4.1
+
+    $RequiredVer = [Version]::New(2,2,4,1)
+
+    Example 2:
+    Create a Version object for a module of version 2.0
+
+    $RequiredVer = [Version]::New(2,0)
+
+
+    The BaseVer contains the existing version number(s), from a command like "Get-Module -ListAvailable PowerShellGet".
+
+    An array of versions is accepted for BaseVer, but not for RequiredVer. The highest version found in BaseVer 
+    is used to compare against RequiredVer.
+
+    The return values of this function are:
+    
+    $True  - Indicates that RequiredVer is higher than the largest BaseVer value. I.E. indicates that an update is needed.
+    $False - Indicates that RequiredVer is less than or euqal to the largest BaseVer value. I.E. indicates that an update is not needed.
+    $null  - Indicates an error occurred during version validation.
+
+#>
+function Compare-Version
+{
+    param(
+        $RequiredVer,
+        [array]$BaseVer
+    )
+
+    # make sure RequredVer is valid
+    if (-NOT (Test-Version $RequiredVer))
+    {
+        Write-Error "RequiredVer is invalid:`n$($RequiredVer | Format-List * | Out-String)"
+        return $null
+    }
+
+    # make sure BaseVer is valid
+    $BaseVer | ForEach-Object {
+        if (-NOT (Test-Version $_))
+        {
+            Write-Error "A BaseVer is invalid:`n$($_ | Format-List * | Out-String)"
+            return $null
+        }
+    }
+
+    # find the highest version number for BaseVer
+    $testVer = ($BaseVer | Sort-Object -Property Major, Minor, Build, Revision -Descending)[0]
+    
+    # perform the comparison
+    $valNames = "Major", "Minor", "Build", "Revision"
+
+    <#
+        Looping through Major, Minor, Build and Revision version levels here. In that order.
+
+        At each step we make a > and then < comparison at the version level.
+
+        If at any point the RequiredVer > testVer/BaseVer, then an update is needed because the matching testVer is smaller than required.
+
+        If at any point the RequiredVer < testVer/BaseVer, then an update is not needed because the matching testVer is larger than required.
+
+        If the loop completes without a return then the versions match and no update is needed.
+    #>
+    foreach ($n in $valNames)
+    {
+        # if $RequiredVer."$n" > $testVer."$n" an update is needed and we're done
+        if ($RequiredVer."$n" -gt $testVer."$n")
+        {
+            return $true
+        
+        } 
+        # if $RequiredVer."$n" < $testVer."$n" an update is not needed and we're done
+        elseif ($RequiredVer."$n" -lt $testVer."$n")
+        {
+            return $false
+        }
+    }
+
+    # if we get to this point then major, minor, build, and revision were all equal and $false is returned
+    return $false
+}
+
 #endregion FUNCTIONS
+
 
 ## code in this region runs on every execution ##
 #region COMMON
 
 Write-Host "Getting things ready."
-$ProgressPreference = "SilentlyContinue"
 
-# reboot when done?
-$restart = $false
+# restart elevated if not running as admin
+[bool]$elevated = (New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+if (-NOT $elevated)
+{
+    Restart-ScriptAsAdmin -Phase $Phase -settingsFile "$settingsFile" -bldPath "$bldPath"
+}
 
 # location to download files and such
 if (-NOT (Test-Path $bldPath)) { mkdir $bldPath -Force | Out-Null }
@@ -330,7 +604,7 @@ switch -regex ($testURI.Scheme)
             }
             else 
             {
-                $settingsPath = "$scriptPath\setup.json"
+                $settingsPath = "$scriptPath\settings.json"
             }
         }
         else 
@@ -344,7 +618,7 @@ switch -regex ($testURI.Scheme)
 
     default
     {
-        $settingsPath = "$scriptPath\setup.json"
+        $settingsPath = "$scriptPath\settings.json"
     }
 
 }
@@ -352,11 +626,20 @@ switch -regex ($testURI.Scheme)
 if ($settingsPath)
 {
     #Write-Output "settingsPath: $settingsPath"
-    $setup = Get-Content $settingsPath | ConvertFrom-Json
+    try 
+    {
+        $setup = Get-Content $settingsPath -EA Stop | ConvertFrom-Json -EA Stop    
+    }
+    catch 
+    {
+        Write-Error "Could not parse settings.json file."
+        exit
+    }
+    
 }
 else 
 {
-    Write-Error "Copuld not find settings.json file."
+    Write-Error "Could not find settings.json file."
     exit
 }
 
@@ -367,35 +650,65 @@ if (-NOT $setup)
 }
 
 
+## enable autoLogon, unless disabled
+# has autologon already been setup?
+$isALFnd = Get-ItemProperty -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "AutoAdminLogon" -ErrorAction SilentlyContinue
 
-# make sure PowerShellGet is version 2.2.4
+$noAutoLogon = [bool]($setup.AutoLogon)
+
+if (-NOT $noAutoLogon -and (-NOT $isALFnd -or $isALFnd.AutoAdminLogon -eq 0))
+{
+    # detect Hyper-V VM and prompt
+    $compy = Get-ComputerInfo -Property CsModel, CsManufacturer, BiosCaption
+    if ($compy.CsModel -match "virtual" -and $compy.CsManufacturer -match "Microsoft" -and $compy.BiosCaption -match "Hyper-V")
+    {
+        Write-Host -ForegroundColor Red "A Hyper-V virtual machine (VM) was detected.`n"
+        Write-Host -ForegroundColor Yellow "WARNING! AutoLogon does not work with remote desktop or enhanced session.`n"
+        Write-Host -ForegroundColor Yellow "Select View from the vmconnect menu and uncheck Enhanced Session to allow AutoLogon to work. Or relaunch the VM console and close the resolution prompt to disable it."
+
+        Write-Host "Press any key to continue..."
+        $null = $host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+    }
+    
+    
+    # disable Ctrl+Alt+Del
+    Set-ItemProperty -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "DisableCAD" -Value 1 -Force
+
+    # set passwordless mode to 0
+    $isPasswordless = Get-ItemProperty -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\PasswordLess\Device" -Name "DevicePasswordLessBuildVersion" -EA SilentlyContinue
+
+    if (-NOT $isPasswordless)
+    {
+        New-Item -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\PasswordLess\Device" -Force
+    }
+    
+    Set-ItemProperty -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\PasswordLess\Device" -Name "DevicePasswordLessBuildVersion" -Value 0 -Force
+
+    # download autologon
+    $sysAL = Get-WebFile -URI "http://live.sysinternals.com/Autologon.exe" -savePath $bldPath -fileName "Autologon.exe"
+
+    if ($sysAL)
+    {
+        Write-Host -ForegroundColor Yellow "By entering a username and password into the AutoLogon prompt you are agreeing to the Microsoft Sysinternals EULA.`n`nhttps://docs.microsoft.com/en-us/sysinternals/license-terms"
+
+        Push-Location $bldPath
+        #.\Autologon.exe
+        Start-Process Autologon.exe -WorkingDirectory $bldPath -Wait
+        Pop-Location
+    }
+}
+
+
+# make sure PowerShellGet is version 2.2.4.1
 $psgVer = (Get-Module -ListAvailable PowerShellGet).Version
 
-$updatePSG = $false
-
-if ($psgVer -is [array])
-{
-    $psgVer = $psgVer | Where-Object {$_.Major -ge 2 -and $_.Minor -ge 2 -and $_.Build -ge 4}
-}
-
-if ($psgVer.Major -lt 2)
-{
-    $updatePSG = $true
-}
-elseif (($psgVer.Major -eq 2 -and $psgVer.Minor -lt 2) -or ($psgVer.Major -eq 2 -and $psgVer.Minor -eq 2 -and $psgVer.Build -lt 4))
-{
-    $updatePSG = $true
-}
-elseif (-NOT $psgVer)
-{
-    $updatePSG = $true
-}
+$updatePSG = Compare-Version -RequiredVer $psgMinVer -BaseVer $psgVer
 
 if ($updatePSG)
 {
     Write-Host "Updating PowerShellGet for PSGallery compatibility."
-    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
-    Install-Module -Name PowerShellGet -MinimumVersion 2.2.4.1 -Force
+    Install-PackageProvider -Name NuGet -MinimumVersion "$($nugetMinVer.GetVersion())" -Force
+    Install-Module -Name PowerShellGet -MinimumVersion "$($psgMinVer.GetVersion())" -Force -AllowClobber
 
     # restart the script in a new console or PowerShellGet will not work
     $argument = @"
@@ -454,6 +767,7 @@ $phase = New-Phase -restart $restart -Phase $Phase -bldPath $bldPath -settingsFi
 
 #endregion COMMON
 
+
 ## control loop ##
 ## This is where the scripts loops through the phases.
 while ($true)
@@ -464,6 +778,7 @@ while ($true)
         1
         {
             Write-Output "Configuring system."
+
             # change the computer name
             if ($setup.computerName)
             {
@@ -771,6 +1086,8 @@ while ($true)
                     catch
                     {
                         Write-Host -ForegroundColor Yellow "Need a little help!`nThe automated install of winget failed. Please click Update to proceed."
+                        Write-Host "Error: $_"
+                        $Error[0] > c:\winget.txt
                         & $wingetPath
                         do
                         {
@@ -829,6 +1146,66 @@ while ($true)
             break
         }
 
+        # install graphics drivers
+        # we don't install anything else because the drivers on WU are good enough for everything else.
+        8
+        {
+            # what GPU(s) are installed
+            [array]$gpu = Get-CimInstance win32_VideoController
+
+            [array]$gpuFnd = $gpu.Name | ForEach-Object { $_ -match "^NVIDIA.*$" }
+
+            # while it's possible to have both AMD and Nvidia GPU's installed at the same time... I'm not going to support that
+            if ($gpuFnd -contains $true)
+            {
+                # is the file local
+                $isNvidiaFnd = Get-Item "$script:scriptPath\Install-BuildNvidia.ps1" -EA SilentlyContinue
+
+                if (-NOT $isNvidiaFnd)
+                {
+                    
+                    # download Install-BuildNvidia.ps1
+                    $bldNvUri = 'https://git.io/Jfhbm'
+                    $bldNv = Get-WebFile -URI $bldNvUri -savePath $bldPath -fileName "Install-BuildNvidia.ps1"
+                }
+                else 
+                {
+                    [string]$bldNv = $isNvidiaFnd.FullName
+                }
+
+                if ((Test-Path $bldNv))
+                {
+                    # install the drivers
+                    Push-Location $bldPath
+
+                    if ($setup.gpuDriverOnly -eq "True")
+                    {
+                        $argument = @"
+-noprofile -nologo -ExecutionPolicy Unrestricted -File .\Install-BuildNvidia.ps1 -bldPath "$bldPath" -driverOnly
+"@
+                    }
+                    else 
+                    {
+                        $argument = @"
+-noprofile -nologo -ExecutionPolicy Unrestricted -File .\Install-BuildNvidia.ps1 -bldPath "$bldPath"
+"@    
+                    }
+
+                    
+
+                    Write-Output "args: $argument"
+                    Start-Process powershell -WorkingDirectory $bldPath -ArgumentList $argument -WindowStyle Normal -Wait
+
+                    Pop-Location
+                }
+            }
+
+            # check for pending reboot
+            $phase = New-Phase -restart $restart -Phase $Phase -bldPath $bldPath -settingsFile $settingsPath
+
+            break
+        }
+
         # cleanup
         default
         {
@@ -845,6 +1222,25 @@ while ($true)
                 $task | Unregister-ScheduledTask -Confirm:$false
             }
 
+            # rerun autologon to give the user an option to disable it as a security best practice.
+            $isALFnd = Get-ItemProperty -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" -Name "AutoAdminLogon" -ErrorAction SilentlyContinue
+
+            if (-NOT $noAutoLogon -and (-NOT $isALFnd -or $isALFnd.AutoAdminLogon -eq 1))
+            {
+                $sysAL = Get-Item "$bldPath\Autologon.exe" -EA SilentlyContinue
+
+                if ($sysAL)
+                {
+                    Write-Host -ForegroundColor Yellow "`n`n`n`n`nOne last prompt!`n`n"
+                    Write-Host -ForegroundColor Green "Windows AutoLogon is still enabled. This should be disabled for security reasons, but this is completely up to you."
+                    Write-Host -ForegroundColor Green "`nPress Disable in the AutoLogon program to resume normal logon. If your PC is secure, and you really want autologon, simply close the prompt."
+
+                    Push-Location $bldPath
+                    #.\Autologon.exe
+                    Start-Process Autologon.exe -WorkingDirectory $bldPath -Wait
+                    Pop-Location
+                }
+            }
 
             # check for pending reboot
             $phase = New-Phase -restart $restart -Phase $Phase -bldPath $bldPath -settingsFile $settingsPath
