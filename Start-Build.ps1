@@ -1057,7 +1057,7 @@ while ($true)
         {
             # automate removal of as many default Win10 apps as possible
             Write-Host "Removing default apps."
-            $exclusions = 'Microsoft.VCLibs.140.00','Microsoft.WindowsStore','Microsoft.DesktopAppInstaller'
+            $exclusions = 'Microsoft.VCLibs.140.00','Microsoft.WindowsStore','Microsoft.DesktopAppInstaller','Microsoft.UI.XAML.2.7','Microsoft.MicrosoftEdge','Microsoft.MicrosoftEdge.Stable','Microsoft.WindowsNotepad'
             Get-AppxPackage | Where-Object Name -notin $exclusions | Remove-AppPackage -Confirm:$false -EA SilentlyContinue | Out-Null
             Get-AppxPackage -AllUsers | Where-Object Name -notin $exclusions | Remove-AppPackage -Confirm:$false -EA SilentlyContinue | Out-Null
 
