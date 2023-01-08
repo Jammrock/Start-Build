@@ -1057,9 +1057,27 @@ while ($true)
         {
             # automate removal of as many default Win10 apps as possible
             Write-Host "Removing default apps."
-            $exclusions = 'Microsoft.VCLibs.140.00','Microsoft.WindowsStore','Microsoft.DesktopAppInstaller','Microsoft.UI.XAML.2.7','Microsoft.MicrosoftEdge','Microsoft.MicrosoftEdge.Stable','Microsoft.WindowsNotepad'
+            #$exclusions = 'Microsoft.VCLibs.140.00','Microsoft.WindowsStore','Microsoft.DesktopAppInstaller','Microsoft.UI.XAML.2.7','Microsoft.MicrosoftEdge','Microsoft.MicrosoftEdge.Stable','Microsoft.WindowsNotepad'
+            $exclusions = 'Microsoft.VCLibs.140.00',`
+                          'Microsoft.WindowsStore',`
+                          'Microsoft.DesktopAppInstaller',`
+                          'Microsoft.UI.XAML.2.7',`
+                          'Microsoft.MicrosoftEdge',`
+                          'Microsoft.MicrosoftEdge.Stable',`
+                          'Microsoft.WindowsNotepad',`
+                          'Microsoft.GamingApp',`
+                          'Microsoft.WindowsCalculator',`
+                          'Microsoft.XboxGamingOverlay',`
+                          'Microsoft.XboxIdentityProvider',`
+                          'Microsoft.WindowsTerminal'
+            
             Get-AppxPackage | Where-Object Name -notin $exclusions | Remove-AppPackage -Confirm:$false -EA SilentlyContinue | Out-Null
             Get-AppxPackage -AllUsers | Where-Object Name -notin $exclusions | Remove-AppPackage -Confirm:$false -EA SilentlyContinue | Out-Null
+
+            
+            $null = New-Item "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent" -Force -EA SilentlyContinue
+            $null = New-ItemProperty "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent" -Name DisableCloudOptimizedContent -PropertyType DWORD -Value 1 -Force -EA SilentlyContinue
+            $null = New-ItemProperty "HKLM:\SOFTWARE\Policies\Microsoft\Windows\CloudContent" -Name DisableConsumerAccountStateContent -PropertyType DWORD -Value 1 -Force -EA SilentlyContinue
 
             # update store stuff
             #Get-AppxPackage -allusers Microsoft.WindowsStore | ForEach-Object {Add-AppxPackage -DisableDevelopmentMode -Register "$($_.InstallLocation)\AppXManifest.xml"}
